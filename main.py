@@ -5,7 +5,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from typing import List, Optional
 from strawberry.fastapi import GraphQLRouter
-import uvicorn
 
 DATABASE_URL = "postgresql://postgres:root@localhost:5432/books"
 
