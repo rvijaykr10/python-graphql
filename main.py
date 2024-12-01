@@ -32,6 +32,7 @@ def get_db():
         db.close()
 
 
+# GraphQL types
 @strawberry.type
 class BookType:
     id: int
@@ -46,56 +47,100 @@ class BookInput:
 
 
 @strawberry.type
+class StandardResponse:
+    success: bool
+    message: str
+    data: Optional[BookType] = None  # For single book responses
+    data_list: Optional[List[BookType]] = None  # For list responses
+
+
+@strawberry.type
 class Query:
     @strawberry.field
-    def books(self) -> List[BookType]:
-        db = next(get_db())
-        books = db.query(Book).all()
-        return [
-            BookType(id=book.id, title=book.title, author=book.author) for book in books
-        ]
+    def books(self) -> StandardResponse:
+        try:
+            db = next(get_db())
+            books = db.query(Book).all()
+            return StandardResponse(
+                success=True,
+                message="Books fetched successfully",
+                data_list=[
+                    BookType(id=book.id, title=book.title, author=book.author)
+                    for book in books
+                ],
+            )
+        except Exception as e:
+            return StandardResponse(success=False, message=f"Error: {str(e)}")
 
     @strawberry.field
-    def book_by_id(self, id: int) -> Optional[BookType]:
-        db = next(get_db())
-        book = db.query(Book).filter(Book.id == id).first()
-        if book:
-            return BookType(id=book.id, title=book.title, author=book.author)
-        return None
+    def book_by_id(self, id: int) -> StandardResponse:
+        try:
+            db = next(get_db())
+            book = db.query(Book).filter(Book.id == id).first()
+            if book:
+                return StandardResponse(
+                    success=True,
+                    message="Book fetched successfully",
+                    data=BookType(id=book.id, title=book.title, author=book.author),
+                )
+            return StandardResponse(success=False, message="Book not found")
+        except Exception as e:
+            return StandardResponse(success=False, message=f"Error: {str(e)}")
 
 
 @strawberry.type
 class Mutation:
     @strawberry.mutation
-    def create_book(self, input: BookInput) -> BookType:
-        db = next(get_db())
-        new_book = Book(title=input.title, author=input.author)
-        db.add(new_book)
-        db.commit()
-        db.refresh(new_book)
-        return BookType(id=new_book.id, title=new_book.title, author=new_book.author)
+    def create_book(self, input: BookInput) -> StandardResponse:
+        try:
+            db = next(get_db())
+            new_book = Book(title=input.title, author=input.author)
+            db.add(new_book)
+            db.commit()
+            db.refresh(new_book)
+            return StandardResponse(
+                success=True,
+                message="Book created successfully",
+                data=BookType(
+                    id=new_book.id, title=new_book.title, author=new_book.author
+                ),
+            )
+        except Exception as e:
+            return StandardResponse(success=False, message=f"Error: {str(e)}")
 
     @strawberry.mutation
-    def update_book(self, id: int, input: BookInput) -> Optional[BookType]:
-        db = next(get_db())
-        book = db.query(Book).filter(Book.id == id).first()
-        if book:
-            book.title = input.title
-            book.author = input.author
-            db.commit()
-            db.refresh(book)
-            return BookType(id=book.id, title=book.title, author=book.author)
-        return None
+    def update_book(self, id: int, input: BookInput) -> StandardResponse:
+        try:
+            db = next(get_db())
+            book = db.query(Book).filter(Book.id == id).first()
+            if book:
+                book.title = input.title
+                book.author = input.author
+                db.commit()
+                db.refresh(book)
+                return StandardResponse(
+                    success=True,
+                    message="Book updated successfully",
+                    data=BookType(id=book.id, title=book.title, author=book.author),
+                )
+            return StandardResponse(success=False, message="Book not found")
+        except Exception as e:
+            return StandardResponse(success=False, message=f"Error: {str(e)}")
 
     @strawberry.mutation
-    def delete_book(self, id: int) -> bool:
-        db = next(get_db())
-        book = db.query(Book).filter(Book.id == id).first()
-        if book:
-            db.delete(book)
-            db.commit()
-            return True
-        return False
+    def delete_book(self, id: int) -> StandardResponse:
+        try:
+            db = next(get_db())
+            book = db.query(Book).filter(Book.id == id).first()
+            if book:
+                db.delete(book)
+                db.commit()
+                return StandardResponse(
+                    success=True, message="Book deleted successfully"
+                )
+            return StandardResponse(success=False, message="Book not found")
+        except Exception as e:
+            return StandardResponse(success=False, message=f"Error: {str(e)}")
 
 
 schema = strawberry.Schema(query=Query, mutation=Mutation)
@@ -108,43 +153,3 @@ app.include_router(graphql_app, prefix="/graphql")
 if __name__ == "__main__":
     Base.metadata.create_all(bind=engine)
     uvicorn.run(app, host="127.0.0.1", port=8000)
-
-
-"""
-mutation {
-  createBook(input: { title: "New Book", author: "Author Name" }) {
-    id
-    title
-    author
-  }
-}
-
-mutation {
-  updateBook(id: 1, input: { title: "Updated Title", author: "Updated Author" }) {
-    id
-    title
-    author
-  }
-}
-
-mutation {
-  deleteBook(id: 1)
-}
-
-query {
-  books {
-    id
-    title
-    author
-  }
-}
-
-query {
-  bookById(id: 1) {
-    id
-    title
-    author
-  }
-}
-
-"""
