@@ -149,7 +149,3 @@ app = FastAPI()
 
 graphql_app: GraphQLRouter = GraphQLRouter(schema)
 app.include_router(graphql_app, prefix="/graphql")
-
-if __name__ == "__main__":
-    Base.metadata.create_all(bind=engine)
-    uvicorn.run(app, host="127.0.0.1", port=8000)
