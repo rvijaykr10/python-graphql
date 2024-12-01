@@ -5,6 +5,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from typing import List, Optional
 from strawberry.fastapi import GraphQLRouter
+from fastapi.middleware.cors import CORSMiddleware
 
 DATABASE_URL = "postgresql://postgres:root@localhost:5432/books"
 
@@ -145,6 +146,14 @@ class Mutation:
 schema = strawberry.Schema(query=Query, mutation=Mutation)
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # React app's URL
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
+)
 
 graphql_app: GraphQLRouter = GraphQLRouter(schema)
 app.include_router(graphql_app, prefix="/graphql")
