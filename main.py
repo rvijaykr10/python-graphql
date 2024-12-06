@@ -1,3 +1,4 @@
+import os
 import strawberry
 from fastapi import FastAPI
 from sqlalchemy import create_engine, Column, Integer, String
@@ -6,22 +7,24 @@ from sqlalchemy.orm import sessionmaker
 from typing import List, Optional
 from strawberry.fastapi import GraphQLRouter
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
-DATABASE_URL = "postgresql://postgres:root@localhost:5432/books"
+load_dotenv()
+# # # DATABASE SETUP
+DATABASE_URL = os.environ.get("DATABASE_URL")
+# DATABASE_URL = "postgresql://postgres:root@localhost:5432/books"
 
 Base = declarative_base()
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 class Book(Base):
     __tablename__ = "books"
 
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String)
-    author = Column(String)
-
-
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    title = Column(String, nullable=False)
+    author = Column(String, nullable=False)
 
 
 def get_db():
@@ -32,7 +35,14 @@ def get_db():
         db.close()
 
 
-# GraphQL types
+def init_db():
+    Base.metadata.create_all(bind=engine)
+
+
+init_db()
+
+
+# # # GRAPHQL SETUP
 @strawberry.type
 class BookType:
     id: int
@@ -50,8 +60,8 @@ class BookInput:
 class StandardResponse:
     success: bool
     message: str
-    data: Optional[BookType] = None  # For single book responses
-    data_list: Optional[List[BookType]] = None  # For list responses
+    data: Optional[BookType] = None
+    data_list: Optional[List[BookType]] = None
 
 
 @strawberry.type
@@ -149,10 +159,10 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # React app's URL
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all HTTP methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 graphql_app: GraphQLRouter = GraphQLRouter(schema)
